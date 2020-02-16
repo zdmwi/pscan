@@ -5,7 +5,9 @@ pscan is a python program developed for basic port scanning on a network.
 ## Usage
 
 ```shell
-python pscan [-h] [--ports PORTS [PORTS ...]] [--network] ip
+usage: pscan [-h] [--ports PORTS [PORTS ...]] [--network]
+             [--range RANGE RANGE]
+             ip
 
 positional arguments:
   ip                    the IP address of the machine to be scanned
@@ -14,7 +16,9 @@ optional arguments:
   -h, --help            show this help message and exit
   --ports PORTS [PORTS ...], -p PORTS [PORTS ...]
                         the ports to be tested by the scanner
-  --network, -n         perform a network-wide search
+  --network, -n         include to perform a network wide search
+  --range RANGE RANGE, -r RANGE RANGE
+                        the upper and lower range of ports to be scanned
 ```
 
 ## Contributing

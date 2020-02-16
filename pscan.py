@@ -16,8 +16,8 @@ def get_network_hosts(ip):
     """
 
     A = ipaddress.IPv4Network('10.0.0.0/8')
-    B = ipaddress.IPv4Network('172.16.0.0/16')
-    C = ipaddress.IPv4Network('192.168.0.0/24')
+    B = ipaddress.IPv4Network('172.16.0.0/12')
+    C = ipaddress.IPv4Network('192.168.0.0/16')
 
     ip_class = None
     if ip in A:
@@ -96,11 +96,23 @@ if __name__ == '__main__':
         help='include to perform a network wide search'
     )
 
+    parser.add_argument(
+        '--range',
+        '-r',
+        dest='range',
+        nargs=2,
+        type=int,
+        help='the upper and lower range of ports to be scanned'
+    )
+
     args = parser.parse_args()
 
     # if no ports are specified use the well-known ports
     if not args.ports:
-        ports = range(1, 1024)
+        if not args.range:
+            ports = range(1, 1024)
+        else:
+            ports = range(args.range[0], args.range[1])
     else:
         ports = args.ports
 
