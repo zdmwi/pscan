@@ -2,6 +2,8 @@ import argparse
 import socket
 import ipaddress
 import itertools
+import datetime
+import re
 
 
 def get_network_hosts(ip):
@@ -30,6 +32,76 @@ def get_network_hosts(ip):
     return (str(host) for host in ip_class)
 
 
+def has_vulnerability(banner):
+    """Checks if there are any reported vulnerabilities associated
+    with the banner being passed in.
+    
+    Args:
+        banner (str): The name of the application banner.
+
+    Returns:
+        A boolean value of True if the banner has a vulnerability or
+        False if the banner does not have a vulnerability.
+    """
+
+    # create a simple key-value pair containing application banners
+    # and whether or not they have vulnerabilites
+    # the vulnerability database is currently limited to banners
+    # of applications that have been detected by pscan and research has shown
+    # some level of vulnerability
+    db = [
+        'nginx',
+        'apache',
+        'microsoft-iis',
+        'lighttpd',
+        'ssh-2.0-dropbear_0.53.1'
+    ]
+    
+    return banner.lower().split('/')[0] in db
+
+
+def grab_banner(ip, port):
+    """Grabs the banner (if any) associated with the address ip:port.
+    
+    Args:
+        ip (str): The machine's IPv4 address.
+        port (int): The port number of the machine.
+
+    Returns:
+        A string containing the application banner running on the address
+        specified by ip:port.
+    """
+    try:
+        # create a new socket for making connections
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        s.settimeout(0.5)
+
+        # attempt to connect to the host via the given port
+        s.connect((ip, int(port)))
+
+        request = 'GET / HTTP/1.1\r\n\r\n'
+        s.send(request.encode('utf-8'))
+        response = s.recv(4096).decode('utf-8')
+
+        # retrieve the banner from applications if they respond
+        # http is a special case and requires an http request to be 
+        # sent to further ascertain the application being run
+        if 'HTTP' in response:
+            # get the value of the http server response header
+            banner = re.search('(Server: .+)|(X-Powered-By: .+)', response)\
+                        .group(0).split(': ')[1]
+        else:
+            banner = response
+        
+        s.close()
+
+        return banner.strip()
+    except:
+        # if we fail to connect ignore the exception and move on
+        return ''
+
+
 def main(ip, ports, is_network_wide):
     """Attempts to connect to each port of the machine identified by
     the provided ip address using the specified protocol.
@@ -50,22 +122,20 @@ def main(ip, ports, is_network_wide):
     # create 2-tuples representing hosts and each port to be checked
     addresses = itertools.product(hosts, ports)
 
-    print("Scanning for open ports...")
+    print(f'Starting pscan at {datetime.datetime.now()}\n')
+
+    found = []
     for host, port in addresses:
-        try:
-            # create a new socket for making connections
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        banner = grab_banner(host, port)
 
-            # attempt to connect to the host via the given port
-            s.connect((host, int(port)))
+        if banner:
+            is_vulnerable = \
+                'VULNERABLE' if has_vulnerability(banner) else 'OK'
+            found.append((host, port, banner, is_vulnerable))
 
-            # if successful, add the host and port combination
-            # and close the socket
-            print(f'{host}:{port} OPEN')
-            s.close()
-        except:
-            # if we fail to connect ignore the exception and move on
-            continue
+    # print('HOST\t\tPORT\tSTATE\tBANNER\t\t\tVULNERABLE')
+    for host, port, banner, is_vulnerable in found:
+        print(f'{host}\t{port}/tcp\tOPEN\t{banner}\t{is_vulnerable}')
 
 
 if __name__ == '__main__':
